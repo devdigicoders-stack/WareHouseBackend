@@ -4,8 +4,8 @@ const User = require('../models/User')
 
 const router = express.Router()
 
-// POST /api/auth/login - PIN login
-router.post('/login', async (req, res) => {
+// POST /api/auth/login or /api/auth/login-pin - PIN login
+router.post(['/login', '/login-pin'], async (req, res) => {
   try {
     const { pin } = req.body
     if (!pin || pin.length !== 4) {
