@@ -52,6 +52,30 @@ async function applyStockUpdates(materials) {
 // POST /api/grn — create new GRN
 router.post('/', async (req, res) => {
   try {
+    const { materials } = req.body
+    if (!materials || !Array.isArray(materials) || materials.length === 0) {
+      return res.status(400).json({ message: 'At least 1 material item is required' })
+    }
+
+    for (let i = 0; i < materials.length; i++) {
+      const item = materials[i]
+      if (!item.mfgDate || !item.mfgDate.trim()) {
+        return res.status(400).json({
+          message: `Manufacturing Date (mfgDate) is mandatory for Item #${i + 1} (${item.productName || 'Material'})`,
+        })
+      }
+      if (!item.expiryDate || !item.expiryDate.trim()) {
+        return res.status(400).json({
+          message: `Expiry Date (expiryDate) is mandatory for Item #${i + 1} (${item.productName || 'Material'})`,
+        })
+      }
+      if (new Date(item.expiryDate) < new Date(item.mfgDate)) {
+        return res.status(400).json({
+          message: `Expiry Date cannot be before Manufacturing Date for Item #${i + 1}`,
+        })
+      }
+    }
+
     const grn = new GRN(req.body)
     await grn.save()
 

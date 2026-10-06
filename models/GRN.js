@@ -10,8 +10,8 @@ const grnItemSchema = new mongoose.Schema({
   totalBaseQty: { type: Number, default: 0 },
   baseUnit: { type: String, default: 'Kg' },
   batchNo: { type: String, default: '' },
-  mfgDate: { type: String, default: '' },
-  expiryDate: { type: String, default: '' },
+  mfgDate: { type: String, required: [true, 'Manufacturing Date is mandatory'] },
+  expiryDate: { type: String, required: [true, 'Expiry Date is mandatory'] },
   remarks: { type: String, default: '' },
 }, { _id: false })
 
