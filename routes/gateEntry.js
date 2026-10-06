@@ -80,4 +80,25 @@ router.patch('/:id/gate-out', async (req, res) => {
   }
 })
 
+// DELETE /api/gate-entry/:id — delete specific gate entry
+router.delete('/:id', async (req, res) => {
+  try {
+    const entry = await GateEntry.findByIdAndDelete(req.params.id)
+    if (!entry) return res.status(404).json({ message: 'Entry not found' })
+    res.json({ message: 'Gate entry deleted successfully', entry })
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Server error' })
+  }
+})
+
+// DELETE /api/gate-entry — delete all gate entries
+router.delete('/', async (req, res) => {
+  try {
+    const result = await GateEntry.deleteMany({})
+    res.json({ message: 'All gate entries deleted successfully', count: result.deletedCount })
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Server error' })
+  }
+})
+
 module.exports = router
