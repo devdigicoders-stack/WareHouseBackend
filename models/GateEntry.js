@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 
 const materialItemSchema = new mongoose.Schema({
   product: { type: String, required: true },
+  sku: { type: String, default: '' },
   packageQty: { type: Number, required: true },
   packagingUnit: { type: String, required: true },
   baseUnitEstimate: { type: String, default: '' },
