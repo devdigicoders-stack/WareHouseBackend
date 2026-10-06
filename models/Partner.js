@@ -13,4 +13,11 @@ const partnerSchema = new mongoose.Schema({
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
 }, { timestamps: true })
 
+partnerSchema.pre('save', async function () {
+  if (this.partnerCode) return
+  const count = await mongoose.model('Partner').countDocuments()
+  const prefix = this.type === 'Supplier' ? 'SUP' : this.type === 'Transporter' ? 'TRN' : 'CUS'
+  this.partnerCode = `${prefix}-${String(count + 1).padStart(4, '0')}`
+})
+
 module.exports = mongoose.model('Partner', partnerSchema)

@@ -19,6 +19,10 @@ const stockAdjustmentSchema = new mongoose.Schema({
   unit: { type: String, default: 'Kg' },
   reason: { type: String, required: true },
   reportedBy: { type: String, default: 'Inventory Controller' },
+  releasedBy: { type: String, default: '' },
+  releaseReason: { type: String, default: '' },
+  releasedAt: { type: Date, default: null },
+  notes: { type: String, default: '' },
   status: {
     type: String,
     enum: ['Pending Approval', 'Approved / Executed', 'Rejected'],

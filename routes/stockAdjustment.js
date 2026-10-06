@@ -18,6 +18,16 @@ router.get('/', async (req, res) => {
 // POST create stock adjustment (and auto-apply inventory difference)
 router.post('/', async (req, res) => {
   try {
+    const { adjustedQty, type, reason } = req.body
+
+    if (adjustedQty !== undefined && Number(adjustedQty) < 0) {
+      return res.status(400).json({ message: 'Quantity cannot be negative in warehouse adjustments' })
+    }
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Adjustment reason / root cause notes are mandatory' })
+    }
+
     const adj = new StockAdjustment(req.body)
     await adj.save()
 

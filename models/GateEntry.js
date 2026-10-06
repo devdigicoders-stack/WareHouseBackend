@@ -14,6 +14,7 @@ const gateEntrySchema = new mongoose.Schema({
   vehicleType: { type: String, required: true },
   driverName: { type: String, required: true },
   driverContact: { type: String, required: true },
+  poNumber: { type: String, default: '' },
   supplier: { type: String, required: true },
   challanNo: { type: String, required: true },
   purpose: { type: String, required: true },
@@ -21,6 +22,10 @@ const gateEntrySchema = new mongoose.Schema({
   inTime: { type: Date, default: Date.now },
   outTime: { type: Date, default: null },
   remarks: { type: String, default: '' },
+  officerRemark: { type: String, default: '' },
+  gateOutRemark: { type: String, default: '' },
+  gateOutOfficerName: { type: String, default: '' },
+  gateOutOfficerId: { type: String, default: '' },
   materialItems: [materialItemSchema],
   status: {
     type: String,
