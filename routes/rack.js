@@ -84,26 +84,32 @@ router.post('/allocate-cell', async (req, res) => {
     const { cellCode, productId, productName, batchNo, quantity } = req.body
     if (!cellCode) return res.status(400).json({ message: 'cellCode is required' })
 
+    // Parse shade number, row, col from any format like SH-01-R01-C01 or SH01-RK-01-R1-C1
+    const sMatch = cellCode.match(/SH[-_]?0?(\d+)/i)
+    const rMatch = cellCode.match(/R0?(\d+)/i)
+    const cMatch = cellCode.match(/C0?(\d+)/i)
+
+    const shadeNum = sMatch ? parseInt(sMatch[1]) : 1
+    const rNum = rMatch ? parseInt(rMatch[1]) : 1
+    const cNum = cMatch ? parseInt(cMatch[1]) : 1
+
+    const shadeRegex = new RegExp(`SH[-_]?0?${shadeNum}`, 'i')
+
     let rack = await Rack.findOne({ 'cells.code': cellCode })
     let cell = null
 
     if (rack) {
       cell = rack.cells.find((c) => c.code === cellCode)
-    } else {
-      // Extract shade prefix (e.g. "SH01" from "SH01-R01-C01" or "SH-01-R01-C01")
-      const cleanShade = cellCode.split('-')[0].replace(/[^a-zA-Z0-9]/g, '')
-      rack = await Rack.findOne({ $or: [{ shadeCode: cleanShade }, { shadeCode: new RegExp(cleanShade, 'i') }] })
+    }
 
+    if (!cell) {
+      // Find rack by shadeCode regex
+      rack = await Rack.findOne({ shadeCode: shadeRegex })
       if (!rack) {
-        // Find any active shade or rack
         rack = await Rack.findOne()
       }
 
-      if (rack) {
-        // Try finding cell by row/col numbers or add cell
-        const parts = cellCode.split('-')
-        const rNum = parseInt((parts[parts.length - 2] || '1').replace(/\D/g, '')) || 1
-        const cNum = parseInt((parts[parts.length - 1] || '1').replace(/\D/g, '')) || 1
+      if (rack && rack.cells && rack.cells.length > 0) {
         cell = rack.cells.find((c) => c.row === rNum && c.col === cNum) || rack.cells[0]
       }
     }
@@ -114,6 +120,7 @@ router.post('/allocate-cell', async (req, res) => {
       cell.productName = productName || cell.productName
       cell.batchNo = batchNo || cell.batchNo
       cell.currentStock = Number(quantity) || cell.currentStock || 1
+      rack.markModified('cells')
       await rack.save()
     }
 
@@ -122,7 +129,7 @@ router.post('/allocate-cell', async (req, res) => {
       const Product = require('../models/Product')
       await Product.updateMany(
         { $or: [{ name: productName }, { batchNo: batchNo || '' }] },
-        { $set: { binLocation: cellCode } }
+        { $set: { binLocation: cellCode, shadeId: `SH0${shadeNum}`, row: `R0${rNum}`, col: `C0${cNum}` } }
       ).catch(() => {})
     }
 
