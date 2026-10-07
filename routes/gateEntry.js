@@ -91,23 +91,57 @@ router.patch('/:id', async (req, res) => {
 // PATCH /api/gate-entry/:id/gate-out — mark vehicle as gate out with officer details & remarks
 router.patch('/:id/gate-out', async (req, res) => {
   try {
-    const { remark, gateOutRemark, officerName, gateOutOfficerName, officerId, gateOutOfficerId } = req.body || {}
+    const { forceGateOut, remark, gateOutRemark, officerName, gateOutOfficerName, officerId, gateOutOfficerId } = req.body || {}
     const outRemark = gateOutRemark || remark || ''
     const outOfficer = gateOutOfficerName || officerName || 'Security Officer'
     const outId = gateOutOfficerId || officerId || 'SEC-01'
 
-    const entry = await GateEntry.findByIdAndUpdate(
-      req.params.id,
-      {
-        status: 'Gate Out / Cleared',
-        outTime: new Date(),
-        gateOutRemark: outRemark,
-        gateOutOfficerName: outOfficer,
-        gateOutOfficerId: outId,
-      },
-      { new: true }
-    )
-    if (!entry) return res.status(404).json({ message: 'Entry not found' })
+    const entry = await GateEntry.findById(req.params.id)
+    if (!entry) return res.status(404).json({ message: 'Gate Entry not found' })
+
+    if (entry.status === 'Gate Out / Cleared') {
+      return res.status(400).json({ message: 'Vehicle is already cleared for Gate Out' })
+    }
+
+    // Validation: Vehicle cannot Gate Out without GRN and Put-Away completion (unless force bypassed)
+    if (!forceGateOut) {
+      const cleanVeh = (entry.vehicleNumber || '').trim()
+      const cleanPo = (entry.poNumber || '').trim()
+      const cleanChallan = (entry.challanNo || '').trim()
+
+      const GRN = require('../models/GRN')
+      const grn = await GRN.findOne({
+        $or: [
+          { gateEntryId: entry._id },
+          { vehicleNo: new RegExp(`^${cleanVeh}$`, 'i') },
+          ...(cleanPo ? [{ poNo: new RegExp(`^${cleanPo}$`, 'i') }] : []),
+        ],
+      })
+
+      if (!grn) {
+        return res.status(400).json({
+          message: `Cannot Gate Out: Goods Receiving (GRN) has not been created for vehicle ${entry.vehicleNumber} (Challan: ${cleanChallan}). Please generate GRN first.`,
+        })
+      }
+
+      const pendingMaterials = (grn.materials || []).filter(
+        (m) => m.putAwayStatus !== 'Completed' && !m.location
+      )
+
+      if (pendingMaterials.length > 0) {
+        return res.status(400).json({
+          message: `Cannot Gate Out: Put-Away check-in is incomplete for GRN (${grn.grnNo}). ${pendingMaterials.length} item(s) are still pending warehouse bin allocation.`,
+        })
+      }
+    }
+
+    entry.status = 'Gate Out / Cleared'
+    entry.outTime = new Date()
+    entry.gateOutRemark = outRemark
+    entry.gateOutOfficerName = outOfficer
+    entry.gateOutOfficerId = outId
+    await entry.save()
+
     res.json(entry)
   } catch (err) {
     res.status(500).json({ message: err.message || 'Server error' })
