@@ -16,7 +16,14 @@ router.get('/', async (req, res) => {
 // POST /api/product — create product
 router.post('/', async (req, res) => {
   try {
-    const product = new Product(req.body)
+    const data = { ...req.body }
+    if (!data.binLocation && data.row && data.col) {
+      data.binLocation = `${data.shadeId || 'SH-01'}-${data.row}-${data.col}`
+    }
+    if (!data.labCertNo && (data.labStatus === 'Passed' || !data.labStatus)) {
+      data.labCertNo = `COA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+    }
+    const product = new Product(data)
     await product.save()
     res.status(201).json(product)
   } catch (err) {
