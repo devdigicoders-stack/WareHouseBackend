@@ -16,6 +16,7 @@ const partnerRoutes = require('./routes/partner')
 const analyticsRoutes = require('./routes/analytics')
 const gatePassRoutes = require('./routes/gatePass')
 const visitorRoutes = require('./routes/visitor')
+const stockMovementRoutes = require('./routes/stockMovement')
 
 const app = express()
 
@@ -33,6 +34,7 @@ app.use('/api/grn', grnRoutes)
 app.use('/api/qc', qcRoutes)
 app.use('/api/dispatch', dispatchRoutes)
 app.use('/api/stock-adjust', stockAdjustmentRoutes)
+app.use('/api/stock-movement', stockMovementRoutes)
 app.use('/api/partners', partnerRoutes)
 app.use('/api/analytics', analyticsRoutes)
 
