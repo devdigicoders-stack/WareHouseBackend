@@ -30,7 +30,16 @@ const gateEntrySchema = new mongoose.Schema({
   materialItems: [materialItemSchema],
   status: {
     type: String,
-    enum: ['Waiting at Gate', 'Unloading at Bay', 'GRN In Process', 'Gate Out / Cleared'],
+    enum: [
+      'Waiting at Gate',
+      'Unloading at Bay',
+      'GRN In Process',
+      'Delayed',
+      'Gate Out / Cleared',
+      'In Queue',
+      'Processing',
+      'Completed'
+    ],
     default: 'Waiting at Gate',
   },
 }, { timestamps: true })

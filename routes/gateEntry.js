@@ -24,9 +24,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Driver phone number must be exactly 10 digits' })
     }
 
-    // 2. Challan / PO validation
+    // 2. Challan / PO validation (auto-generate fallback if omitted from queue)
     if (!challanNo || challanNo.trim().length < 3) {
-      return res.status(400).json({ message: 'Valid Challan / PO number is required (min 3 chars)' })
+      challanNo = `CH-Q-${Date.now().toString().slice(-6)}`
     }
 
     // 3. Duplicate vehicle check: prevent duplicate entry if vehicle is already inside
@@ -45,12 +45,46 @@ router.post('/', async (req, res) => {
     const entry = new GateEntry({
       ...req.body,
       vehicleNumber: cleanVehicleNo,
+      challanNo,
       officerRemark: officerRemark || remarks || '',
     })
     await entry.save()
     res.status(201).json(entry)
   } catch (err) {
     res.status(400).json({ message: err.message })
+  }
+})
+
+// PATCH /api/gate-entry/:id/status — update status or assigned bay from queue / gate
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { status, assignedBay, remarks } = req.body || {}
+    const updateData = {}
+    if (status) {
+      updateData.status = status
+      if (status === 'Gate Out / Cleared' || status === 'Completed') {
+        updateData.outTime = new Date()
+      }
+    }
+    if (assignedBay) updateData.assignedBay = assignedBay
+    if (remarks) updateData.remarks = remarks
+
+    const entry = await GateEntry.findByIdAndUpdate(req.params.id, updateData, { new: true })
+    if (!entry) return res.status(404).json({ message: 'Entry not found' })
+    res.json(entry)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Server error' })
+  }
+})
+
+// PATCH /api/gate-entry/:id — generic update
+router.patch('/:id', async (req, res) => {
+  try {
+    const entry = await GateEntry.findByIdAndUpdate(req.params.id, req.body, { new: true })
+    if (!entry) return res.status(404).json({ message: 'Entry not found' })
+    res.json(entry)
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Server error' })
   }
 })
 
