@@ -11,7 +11,7 @@ async function findCellByLocation(locationCode) {
 
   const sMatch = locationCode.match(/SH[-_]?0?(\d+)/i)
   const rkMatch = locationCode.match(/RK[-_]?0?(\d+)/i)
-  const rMatch = locationCode.match(/R0?(\d+)/i)
+  const rMatch = locationCode.match(/(?:^|[^K])R0?(\d+)/i)
   const cMatch = locationCode.match(/C0?(\d+)/i)
 
   const shadeNum = sMatch ? parseInt(sMatch[1]) : 1
@@ -19,23 +19,28 @@ async function findCellByLocation(locationCode) {
   const rNum = rMatch ? parseInt(rMatch[1]) : 1
   const cNum = cMatch ? parseInt(cMatch[1]) : 1
 
-  const shadeRegex = new RegExp(`SH[-_]?0?${shadeNum}`, 'i')
-  const rackRegex = new RegExp(`RK[-_]?0?${rkNum}`, 'i')
+  const shadeRegex = new RegExp(`SH[-_]?0?${shadeNum}$|^SH0?${shadeNum}`, 'i')
+  const rackRegex = new RegExp(`RK[-_]?0?${rkNum}$|^RK0?${rkNum}`, 'i')
 
-  let rack = await Rack.findOne({ 'cells.code': locationCode })
+  let rack = await Rack.findOne({
+    $or: [
+      { 'cells.code': locationCode },
+      { 'cells.code': new RegExp(locationCode.replace(/[-_]/g, '[-_]?'), 'i') },
+      { shadeCode: shadeRegex, rackNumber: rackRegex },
+      { shadeCode: shadeRegex },
+    ],
+  })
+
   let cell = null
 
-  if (rack) {
-    cell = rack.cells.find((c) => c.code === locationCode)
+  if (rack && rack.cells) {
+    cell = rack.cells.find((c) => c.code === locationCode || (c.row === rNum && c.col === cNum))
   }
 
-  if (!cell) {
-    rack = await Rack.findOne({ shadeCode: shadeRegex, rackNumber: rackRegex })
-    if (!rack) rack = await Rack.findOne({ shadeCode: shadeRegex })
-    if (!rack) rack = await Rack.findOne()
-
-    if (rack && rack.cells && rack.cells.length > 0) {
-      cell = rack.cells.find((c) => c.row === rNum && c.col === cNum) || rack.cells[0]
+  if (!cell && !rack) {
+    rack = await Rack.findOne({ shadeCode: shadeRegex })
+    if (rack && rack.cells) {
+      cell = rack.cells.find((c) => c.row === rNum && c.col === cNum)
     }
   }
 
@@ -115,6 +120,18 @@ router.post('/', async (req, res) => {
         { $or: [{ name: productName }, { batchNo: batchNo || '' }] },
         { $set: { binLocation: toLocation } }
       ).catch(() => {})
+    }
+
+    // 4. Sync GRN material location so old location is updated
+    try {
+      const GRN = require('../models/GRN')
+      await GRN.updateMany(
+        { 'materials.batchNo': batchNo },
+        { $set: { 'materials.$[elem].location': toLocation } },
+        { arrayFilters: [{ 'elem.batchNo': batchNo }] }
+      )
+    } catch (e) {
+      console.warn('GRN sync note:', e)
     }
 
     // 4. Create and save movement record in MongoDB
