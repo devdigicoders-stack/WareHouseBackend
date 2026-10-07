@@ -26,10 +26,10 @@ router.get('/:id', async (req, res) => {
 })
 
 // Helper to update product stocks for completed GRN
-async function applyStockUpdates(materials) {
+async function applyStockUpdates(materials, defaultShade = '') {
   if (!Array.isArray(materials)) return
   for (const item of materials) {
-    const qtyToAdd = Number(item.totalBaseQty) || Number(item.packageQty) || 0
+    const qtyToAdd = Number(item.totalBaseQty) || (Number(item.packageQty) * (Number(item.packSize) || 1)) || Number(item.packageQty) || 0
     const updateFields = {
       status: 'Active',
       labStatus: 'Quarantine / Under Test',
@@ -37,21 +37,70 @@ async function applyStockUpdates(materials) {
     if (item.batchNo) updateFields.batchNo = item.batchNo
     if (item.mfgDate) updateFields.mfgDate = item.mfgDate
     if (item.expiryDate) updateFields.expiryDate = item.expiryDate
+    if (item.baseUnit) updateFields.baseUnit = item.baseUnit
+    if (item.packagingUnit) updateFields.outerPackaging = item.packagingUnit
+    if (item.packSize) updateFields.packSize = Number(item.packSize)
+    if (item.location) updateFields.binLocation = item.location
+    if (defaultShade) {
+      updateFields.storageZone = defaultShade
+      const shadeCodeMatch = defaultShade.match(/SH-?\d{1,2}/i)
+      if (shadeCodeMatch) updateFields.shadeId = shadeCodeMatch[0].toUpperCase()
+    }
 
+    let updated = null
     if (item.productId) {
-      if (qtyToAdd > 0) {
-        await Product.findByIdAndUpdate(item.productId, {
+      try {
+        updated = await Product.findByIdAndUpdate(item.productId, {
           $inc: { currentStock: qtyToAdd },
           $set: updateFields,
-        })
-      }
-    } else if (item.sku) {
-      if (qtyToAdd > 0) {
-        await Product.findOneAndUpdate(
-          { sku: item.sku },
-          { $inc: { currentStock: qtyToAdd }, $set: updateFields }
-        )
-      }
+        }, { new: true })
+      } catch {}
+    }
+
+    if (!updated && item.sku && item.sku.trim()) {
+      updated = await Product.findOneAndUpdate(
+        { sku: item.sku.trim().toUpperCase() },
+        { $inc: { currentStock: qtyToAdd }, $set: updateFields },
+        { new: true }
+      )
+    }
+
+    if (!updated && item.productName && item.productName.trim()) {
+      updated = await Product.findOneAndUpdate(
+        { name: new RegExp(`^${item.productName.trim()}$`, 'i') },
+        { $inc: { currentStock: qtyToAdd }, $set: updateFields },
+        { new: true }
+      )
+    }
+
+    // If product does not exist yet in catalogue, automatically create it
+    if (!updated && (item.productName || item.sku)) {
+      const pName = (item.productName && item.productName.trim()) || item.sku || 'Received Material'
+      const pSku = (item.sku && item.sku.trim()) ? item.sku.trim().toUpperCase() : `PRD-${Date.now().toString().slice(-6)}`
+      const sZone = defaultShade || 'SH-01 (Shade 1: General Stores)'
+      const shadeCodeMatch = sZone.match(/SH-?\d{1,2}/i)
+      const sId = shadeCodeMatch ? shadeCodeMatch[0].toUpperCase() : 'SH-01'
+
+      const newProd = new Product({
+        name: pName,
+        sku: pSku,
+        category: item.category || 'General Goods',
+        brand: item.brand || 'Commercial Grade',
+        baseUnit: item.baseUnit || 'Kg',
+        outerPackaging: item.packagingUnit || 'Packs',
+        packSize: Number(item.packSize) || 1,
+        currentStock: qtyToAdd,
+        reorderLevel: 50,
+        storageZone: sZone,
+        shadeId: sId,
+        binLocation: item.location || '',
+        batchNo: item.batchNo || '',
+        expiryDate: item.expiryDate || '',
+        mfgDate: item.mfgDate || '',
+        labStatus: 'Quarantine / Under Test',
+        status: 'Active',
+      })
+      await newProd.save().catch(() => {})
     }
   }
 }
@@ -88,7 +137,7 @@ router.post('/', async (req, res) => {
 
     // If already Completed, increment stock in Product catalog
     if (grn.status === 'Completed' && grn.materials && grn.materials.length > 0) {
-      await applyStockUpdates(grn.materials)
+      await applyStockUpdates(grn.materials, grn.shade)
     }
 
     res.status(201).json(grn)
@@ -110,7 +159,7 @@ router.patch('/:id/status', async (req, res) => {
 
     // If changed to Completed from another status, update product stock
     if (status === 'Completed' && prevStatus !== 'Completed') {
-      await applyStockUpdates(existing.materials)
+      await applyStockUpdates(existing.materials, existing.shade)
     }
 
     res.json(existing)
@@ -135,8 +184,8 @@ router.post('/allocate-item', async (req, res) => {
       for (const mat of grn.materials) {
         if (
           (batchNo && mat.batchNo === batchNo) ||
-          (sku && mat.sku === sku) ||
-          (productName && mat.productName === productName)
+          (sku && mat.sku && mat.sku.toUpperCase() === sku.toUpperCase()) ||
+          (productName && mat.productName && mat.productName.toLowerCase() === productName.toLowerCase())
         ) {
           mat.location = cellCode
           mat.putAwayStatus = 'Completed'
@@ -156,8 +205,8 @@ router.post('/allocate-item', async (req, res) => {
 
     // Sync location into Product catalog
     const prodQuery = []
-    if (sku) prodQuery.push({ sku })
-    if (productName) prodQuery.push({ name: productName })
+    if (sku) prodQuery.push({ sku: sku.trim().toUpperCase() })
+    if (productName) prodQuery.push({ name: new RegExp(`^${productName.trim()}$`, 'i') })
     if (prodQuery.length > 0) {
       await Product.updateMany(
         { $or: prodQuery },

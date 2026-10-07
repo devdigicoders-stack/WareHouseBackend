@@ -32,17 +32,17 @@ router.post('/', async (req, res) => {
     await qc.save()
 
     // Sync status and certificate to Product
-    const filter = {}
-    if (qc.sku) filter.sku = qc.sku
-    else if (qc.productName) filter.name = qc.productName
+    const filter = []
+    if (qc.sku) filter.push({ sku: qc.sku.trim().toUpperCase() })
+    if (qc.productName) filter.push({ name: new RegExp(`^${qc.productName.trim()}$`, 'i') })
 
-    if (Object.keys(filter).length > 0) {
+    if (filter.length > 0) {
       const updateData = {
         labStatus: qc.status || 'Passed',
         labCertNo: qc.certificateNo || '',
       }
       if (qc.batchNo) updateData.batchNo = qc.batchNo
-      await Product.updateMany(filter, { $set: updateData })
+      await Product.updateMany({ $or: filter }, { $set: updateData }).catch(() => {})
     }
 
     res.status(201).json(qc)
@@ -63,16 +63,19 @@ router.patch('/:id/status', async (req, res) => {
     if (!record) return res.status(404).json({ message: 'QC Record not found' })
 
     if (status) {
-      const filter = {}
-      if (record.sku) filter.sku = record.sku
-      else if (record.productName) filter.name = record.productName
-      if (Object.keys(filter).length > 0) {
-        await Product.updateMany(filter, {
-          $set: {
-            labStatus: status,
-            ...(record.certificateNo && { labCertNo: record.certificateNo }),
-          },
-        })
+      const filter = []
+      if (record.sku) filter.push({ sku: record.sku.trim().toUpperCase() })
+      if (record.productName) filter.push({ name: new RegExp(`^${record.productName.trim()}$`, 'i') })
+      if (filter.length > 0) {
+        await Product.updateMany(
+          { $or: filter },
+          {
+            $set: {
+              labStatus: status,
+              ...(record.certificateNo && { labCertNo: record.certificateNo }),
+            },
+          }
+        ).catch(() => {})
       }
     }
 
