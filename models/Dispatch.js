@@ -10,18 +10,24 @@ const dispatchItemSchema = new mongoose.Schema({
   packSize: { type: Number, default: 1 },
   requestedQty: { type: Number, required: true },
   pickedQty: { type: Number, default: 0 },
-  verified: { type: Boolean, default: false }
+  verified: { type: Boolean, default: false },
+  expiryDate: { type: String, default: '' },
+  labCert: { type: String, default: 'Passed / COA Verified' }
 }, { _id: false })
 
 const dispatchSchema = new mongoose.Schema({
   dispatchNo: { type: String, unique: true },
   orderNo: { type: String, required: true, uppercase: true },
   customerName: { type: String, required: true },
-  destination: { type: String, required: true },
+  destination: { type: String, default: '' },
   vehicleNo: { type: String, required: true, uppercase: true },
   driverName: { type: String, required: true },
-  driverContact: { type: String, required: true },
+  driverContact: { type: String, default: '' },
   dispatchDate: { type: Date, default: Date.now },
+  dispatchType: { type: String, default: 'Outward Customer Sale' },
+  shadeId: { type: String, default: 'SH01' },
+  expectedDelivery: { type: String, default: 'Today' },
+  labStatus: { type: String, default: 'Passed' },
   items: [dispatchItemSchema],
   totalPackages: { type: Number, default: 0 },
   totalBaseQty: { type: Number, default: 0 },
@@ -29,7 +35,6 @@ const dispatchSchema = new mongoose.Schema({
   gatePassNo: { type: String, default: '' },
   status: {
     type: String,
-    enum: ['Draft / Picklist', 'Picking In Progress', 'QR Verified / Ready', 'Dispatched', 'Gate Out / Cleared'],
     default: 'Draft / Picklist'
   },
   dispatchedBy: { type: String, default: 'Warehouse Manager' },
