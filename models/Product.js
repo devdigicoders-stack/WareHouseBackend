@@ -18,7 +18,7 @@ const productSchema = new mongoose.Schema({
   batchNo: { type: String, default: '' },
   expiryDate: { type: String, default: '' },
   mfgDate: { type: String, default: '' },
-  labStatus: { type: String, default: 'Passed' },
+  labStatus: { type: String, default: 'Pending QC' },
   labCertNo: { type: String, default: '' },
   reservedQty: { type: Number, default: 0 },
   barcode: { type: String, default: '' },
