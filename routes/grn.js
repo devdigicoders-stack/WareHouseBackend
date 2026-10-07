@@ -29,20 +29,27 @@ router.get('/:id', async (req, res) => {
 async function applyStockUpdates(materials) {
   if (!Array.isArray(materials)) return
   for (const item of materials) {
+    const qtyToAdd = Number(item.totalBaseQty) || Number(item.packageQty) || 0
+    const updateFields = {
+      status: 'Active',
+      labStatus: 'Quarantine / Under Test',
+    }
+    if (item.batchNo) updateFields.batchNo = item.batchNo
+    if (item.mfgDate) updateFields.mfgDate = item.mfgDate
+    if (item.expiryDate) updateFields.expiryDate = item.expiryDate
+
     if (item.productId) {
-      const qtyToAdd = Number(item.totalBaseQty) || Number(item.packageQty) || 0
       if (qtyToAdd > 0) {
         await Product.findByIdAndUpdate(item.productId, {
           $inc: { currentStock: qtyToAdd },
-          $set: { status: 'Active' },
+          $set: updateFields,
         })
       }
     } else if (item.sku) {
-      const qtyToAdd = Number(item.totalBaseQty) || Number(item.packageQty) || 0
       if (qtyToAdd > 0) {
         await Product.findOneAndUpdate(
           { sku: item.sku },
-          { $inc: { currentStock: qtyToAdd }, $set: { status: 'Active' } }
+          { $inc: { currentStock: qtyToAdd }, $set: updateFields }
         )
       }
     }

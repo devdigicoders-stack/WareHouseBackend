@@ -17,11 +17,14 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const data = { ...req.body }
-    if (!data.binLocation && data.row && data.col) {
-      data.binLocation = `${data.shadeId || 'SH-01'}-${data.row}-${data.col}`
+    if (!data.labStatus) {
+      data.labStatus = 'Pending QC'
     }
-    if (!data.labCertNo && (data.labStatus === 'Passed' || !data.labStatus)) {
-      data.labCertNo = `COA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+    if (!data.labCertNo) {
+      data.labCertNo = ''
+    }
+    if (data.currentStock === undefined || data.currentStock === null) {
+      data.currentStock = 0
     }
     const product = new Product(data)
     await product.save()

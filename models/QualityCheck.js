@@ -6,8 +6,11 @@ const qcSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   sku: { type: String, default: '' },
   batchNo: { type: String, required: true },
+  testProtocol: { type: String, default: 'Moisture & Grain Quality Test' },
   sampleSize: { type: String, default: '500g / 1 Unit' },
-  testedBy: { type: String, default: 'QC Lab Chemist' },
+  testedBy: { type: String, default: 'Dr. Sharma (QA Lead)' },
+  expectedDate: { type: String, default: '' },
+  storageZone: { type: String, default: '' },
   parameters: [{
     name: { type: String, required: true },
     standard: { type: String, default: '' },
@@ -17,7 +20,7 @@ const qcSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['Passed', 'Failed / Rejected', 'Quarantine / Under Test'],
-    default: 'Passed'
+    default: 'Quarantine / Under Test'
   },
   remarks: { type: String, default: 'All sensory and physical parameters within specification limits.' },
   certificateNo: { type: String, default: '' },
