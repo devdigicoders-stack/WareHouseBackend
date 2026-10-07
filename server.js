@@ -14,6 +14,7 @@ const dispatchRoutes = require('./routes/dispatch')
 const stockAdjustmentRoutes = require('./routes/stockAdjustment')
 const partnerRoutes = require('./routes/partner')
 const analyticsRoutes = require('./routes/analytics')
+const gatePassRoutes = require('./routes/gatePass')
 
 const app = express()
 
@@ -22,6 +23,7 @@ app.use(express.json())
 
 app.use('/api/auth', authRoutes)
 app.use('/api/gate-entry', gateEntryRoutes)
+app.use('/api/gate-pass', gatePassRoutes)
 app.use('/api/product', productRoutes)
 app.use('/api/shade', shadeRoutes)
 app.use('/api/rack', rackRoutes)
