@@ -13,6 +13,9 @@ const grnItemSchema = new mongoose.Schema({
   mfgDate: { type: String, required: [true, 'Manufacturing Date is mandatory'] },
   expiryDate: { type: String, required: [true, 'Expiry Date is mandatory'] },
   remarks: { type: String, default: '' },
+  location: { type: String, default: '' },
+  putAwayStatus: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
+  putAwayAt: { type: Date, default: null },
 }, { _id: false })
 
 const grnSchema = new mongoose.Schema({

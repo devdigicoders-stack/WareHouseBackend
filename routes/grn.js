@@ -119,6 +119,65 @@ router.patch('/:id/status', async (req, res) => {
   }
 })
 
+// POST /api/grn/allocate-item — allocate put-away location for a material item in GRN
+router.post('/allocate-item', async (req, res) => {
+  try {
+    const { grnNo, batchNo, sku, cellCode, shade, row, col, productName } = req.body
+    if (!grnNo || !cellCode) {
+      return res.status(400).json({ message: 'grnNo and cellCode are required' })
+    }
+
+    const grn = await GRN.findOne({ grnNo })
+    if (!grn) return res.status(404).json({ message: `GRN ${grnNo} not found` })
+
+    let itemFound = false
+    if (grn.materials && grn.materials.length > 0) {
+      for (const mat of grn.materials) {
+        if (
+          (batchNo && mat.batchNo === batchNo) ||
+          (sku && mat.sku === sku) ||
+          (productName && mat.productName === productName)
+        ) {
+          mat.location = cellCode
+          mat.putAwayStatus = 'Completed'
+          mat.putAwayAt = new Date()
+          itemFound = true
+          break
+        }
+      }
+      // If none explicitly matched, allocate first pending item
+      if (!itemFound && grn.materials.length > 0) {
+        grn.materials[0].location = cellCode
+        grn.materials[0].putAwayStatus = 'Completed'
+        grn.materials[0].putAwayAt = new Date()
+      }
+      await grn.save()
+    }
+
+    // Sync location into Product catalog
+    const prodQuery = []
+    if (sku) prodQuery.push({ sku })
+    if (productName) prodQuery.push({ name: productName })
+    if (prodQuery.length > 0) {
+      await Product.updateMany(
+        { $or: prodQuery },
+        {
+          $set: {
+            binLocation: cellCode,
+            shadeId: shade || cellCode.split('-')[0] || '',
+            row: row || cellCode.split('-')[1] || 'R01',
+            col: col || cellCode.split('-')[2] || 'C01',
+          },
+        }
+      ).catch(() => {})
+    }
+
+    res.json({ message: `Item allocated to ${cellCode} successfully`, grn })
+  } catch (err) {
+    res.status(400).json({ message: err.message || 'Failed to allocate GRN item' })
+  }
+})
+
 // DELETE /api/grn/:id — delete GRN
 router.delete('/:id', async (req, res) => {
   try {

@@ -84,19 +84,48 @@ router.post('/allocate-cell', async (req, res) => {
     const { cellCode, productId, productName, batchNo, quantity } = req.body
     if (!cellCode) return res.status(400).json({ message: 'cellCode is required' })
 
-    const rack = await Rack.findOne({ 'cells.code': cellCode })
-    if (!rack) return res.status(404).json({ message: `Rack or Cell ${cellCode} not found` })
+    let rack = await Rack.findOne({ 'cells.code': cellCode })
+    let cell = null
 
-    const cell = rack.cells.find((c) => c.code === cellCode)
-    if (!cell) return res.status(404).json({ message: `Cell ${cellCode} not found` })
+    if (rack) {
+      cell = rack.cells.find((c) => c.code === cellCode)
+    } else {
+      // Extract shade prefix (e.g. "SH01" from "SH01-R01-C01" or "SH-01-R01-C01")
+      const cleanShade = cellCode.split('-')[0].replace(/[^a-zA-Z0-9]/g, '')
+      rack = await Rack.findOne({ $or: [{ shadeCode: cleanShade }, { shadeCode: new RegExp(cleanShade, 'i') }] })
 
-    cell.status = 'Occupied'
-    cell.productId = productId || cell.productId
-    cell.productName = productName || cell.productName
-    cell.batchNo = batchNo || cell.batchNo
-    cell.currentStock = Number(quantity) || cell.currentStock || 1
+      if (!rack) {
+        // Find any active shade or rack
+        rack = await Rack.findOne()
+      }
 
-    await rack.save()
+      if (rack) {
+        // Try finding cell by row/col numbers or add cell
+        const parts = cellCode.split('-')
+        const rNum = parseInt((parts[parts.length - 2] || '1').replace(/\D/g, '')) || 1
+        const cNum = parseInt((parts[parts.length - 1] || '1').replace(/\D/g, '')) || 1
+        cell = rack.cells.find((c) => c.row === rNum && c.col === cNum) || rack.cells[0]
+      }
+    }
+
+    if (cell && rack) {
+      cell.status = 'Occupied'
+      cell.productId = productId || cell.productId
+      cell.productName = productName || cell.productName
+      cell.batchNo = batchNo || cell.batchNo
+      cell.currentStock = Number(quantity) || cell.currentStock || 1
+      await rack.save()
+    }
+
+    // Sync Product model if productName provided
+    if (productName) {
+      const Product = require('../models/Product')
+      await Product.updateMany(
+        { $or: [{ name: productName }, { batchNo: batchNo || '' }] },
+        { $set: { binLocation: cellCode } }
+      ).catch(() => {})
+    }
+
     res.json({ message: `Cell ${cellCode} allocated successfully`, cell, rack })
   } catch (err) {
     res.status(400).json({ message: err.message })
