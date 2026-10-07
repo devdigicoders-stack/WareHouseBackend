@@ -84,16 +84,19 @@ router.post('/allocate-cell', async (req, res) => {
     const { cellCode, productId, productName, batchNo, quantity } = req.body
     if (!cellCode) return res.status(400).json({ message: 'cellCode is required' })
 
-    // Parse shade number, row, col from any format like SH-01-R01-C01 or SH01-RK-01-R1-C1
+    // Parse shade number, rack number, row, col from any format like SH-01-R01-C01 or SH-01-RK-01-R1-C1
     const sMatch = cellCode.match(/SH[-_]?0?(\d+)/i)
+    const rkMatch = cellCode.match(/RK[-_]?0?(\d+)/i)
     const rMatch = cellCode.match(/R0?(\d+)/i)
     const cMatch = cellCode.match(/C0?(\d+)/i)
 
     const shadeNum = sMatch ? parseInt(sMatch[1]) : 1
+    const rkNum = rkMatch ? parseInt(rkMatch[1]) : 1
     const rNum = rMatch ? parseInt(rMatch[1]) : 1
     const cNum = cMatch ? parseInt(cMatch[1]) : 1
 
     const shadeRegex = new RegExp(`SH[-_]?0?${shadeNum}`, 'i')
+    const rackRegex = new RegExp(`RK[-_]?0?${rkNum}`, 'i')
 
     let rack = await Rack.findOne({ 'cells.code': cellCode })
     let cell = null
@@ -103,8 +106,11 @@ router.post('/allocate-cell', async (req, res) => {
     }
 
     if (!cell) {
-      // Find rack by shadeCode regex
-      rack = await Rack.findOne({ shadeCode: shadeRegex })
+      // Find rack by shadeCode AND rackNumber
+      rack = await Rack.findOne({ shadeCode: shadeRegex, rackNumber: rackRegex })
+      if (!rack) {
+        rack = await Rack.findOne({ shadeCode: shadeRegex })
+      }
       if (!rack) {
         rack = await Rack.findOne()
       }
@@ -116,6 +122,7 @@ router.post('/allocate-cell', async (req, res) => {
 
     if (cell && rack) {
       cell.status = 'Occupied'
+      cell.code = `${rack.shadeCode}-${rack.rackNumber}-R${cell.row}-C${cell.col}`
       cell.productId = productId || cell.productId
       cell.productName = productName || cell.productName
       cell.batchNo = batchNo || cell.batchNo
