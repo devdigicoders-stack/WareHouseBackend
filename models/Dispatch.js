@@ -10,6 +10,7 @@ const dispatchItemSchema = new mongoose.Schema({
   packSize: { type: Number, default: 1 },
   requestedQty: { type: Number, required: true },
   pickedQty: { type: Number, default: 0 },
+  baseQty: { type: Number, default: 0 },
   verified: { type: Boolean, default: false },
   expiryDate: { type: String, default: '' },
   labCert: { type: String, default: 'Passed / COA Verified' }
@@ -20,8 +21,8 @@ const dispatchSchema = new mongoose.Schema({
   orderNo: { type: String, required: true, uppercase: true },
   customerName: { type: String, required: true },
   destination: { type: String, default: '' },
-  vehicleNo: { type: String, required: true, uppercase: true },
-  driverName: { type: String, required: true },
+  vehicleNo: { type: String, default: 'UP-32-AB-1947', uppercase: true },
+  driverName: { type: String, default: 'Satnam Singh (Fleet Driver)' },
   driverContact: { type: String, default: '' },
   dispatchDate: { type: Date, default: Date.now },
   dispatchType: { type: String, default: 'Outward Customer Sale' },

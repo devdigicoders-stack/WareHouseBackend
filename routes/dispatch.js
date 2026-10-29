@@ -30,24 +30,41 @@ router.get('/:id', async (req, res) => {
 async function processDispatchStockDeduction(items) {
   if (!Array.isArray(items)) return
   for (const item of items) {
-    const qtyToDeduct = Number(item.pickedQty) || Number(item.requestedQty) || 0
+    const qtyToDeduct =
+      Number(item.baseQty) ||
+      (Number(item.pickedQty) && Number(item.packSize) ? Number(item.pickedQty) * Number(item.packSize) : 0) ||
+      Number(item.pickedQty) ||
+      Number(item.requestedQty) ||
+      0
+
     if (qtyToDeduct > 0) {
+      let prod = null
       if (item.productId) {
-        await Product.findByIdAndUpdate(item.productId, {
-          $inc: { currentStock: -qtyToDeduct }
-        })
-      } else if (item.sku) {
-        await Product.findOneAndUpdate(
-          { sku: item.sku },
-          { $inc: { currentStock: -qtyToDeduct } }
-        )
+        prod = await Product.findById(item.productId)
+      }
+      if (!prod && item.sku) {
+        prod = await Product.findOne({ sku: item.sku })
+      }
+      if (!prod && item.productName) {
+        prod = await Product.findOne({ name: item.productName })
+      }
+
+      if (prod) {
+        let finalDeduct = Number(item.baseQty)
+        if (!finalDeduct || finalDeduct <= 0) {
+          const packRatio = Number(item.packSize) > 1 ? Number(item.packSize) : (prod.packSize || 1)
+          finalDeduct = (Number(item.pickedQty) || Number(item.requestedQty) || 1) * packRatio
+        }
+        prod.currentStock = Math.max(0, (prod.currentStock || 0) - finalDeduct)
+        await prod.save()
       }
 
       // If locationCode provided, also deduct from cell
-      if (item.locationCode) {
-        const rack = await Rack.findOne({ 'cells.code': item.locationCode })
+      const loc = item.locationCode || item.location
+      if (loc) {
+        const rack = await Rack.findOne({ 'cells.code': loc })
         if (rack) {
-          const cell = rack.cells.find((c) => c.code === item.locationCode)
+          const cell = rack.cells.find((c) => c.code === loc)
           if (cell) {
             cell.currentStock = Math.max(0, (cell.currentStock || 0) - qtyToDeduct)
             if (cell.currentStock === 0) {
@@ -69,6 +86,12 @@ router.post('/', async (req, res) => {
   try {
     const dispatch = new Dispatch(req.body)
     await dispatch.save()
+
+    // Deduct stock if marked as Dispatched or immediate deduction requested
+    if (dispatch.status === 'Dispatched' || req.body.deductStock) {
+      await processDispatchStockDeduction(dispatch.items)
+    }
+
     res.status(201).json(dispatch)
   } catch (err) {
     res.status(400).json({ message: err.message })
