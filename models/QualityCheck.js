@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 
 const qcSchema = new mongoose.Schema({
   qcNumber: { type: String, unique: true },
-  grnNo: { type: String, required: true },
+  grnNo: { type: String, default: 'GRN-INWARD' },
   productName: { type: String, required: true },
   sku: { type: String, default: '' },
   batchNo: { type: String, required: true },

@@ -1,6 +1,7 @@
 const express = require('express')
 const GRN = require('../models/GRN')
 const Product = require('../models/Product')
+const Batch = require('../models/Batch')
 
 const router = express.Router()
 
@@ -101,6 +102,34 @@ async function applyStockUpdates(materials, defaultShade = '') {
         status: 'Active',
       })
       await newProd.save().catch(() => {})
+    }
+
+    // Automatically register or update batch in Batch collection
+    if (item.batchNo && item.batchNo.trim()) {
+      try {
+        const bNo = item.batchNo.trim().toUpperCase()
+        const bProduct = updated || await Product.findOne({ $or: [{ sku: item.sku?.trim().toUpperCase() }, { name: item.productName?.trim() }] })
+        await Batch.findOneAndUpdate(
+          { batchNo: bNo },
+          {
+            $set: {
+              productName: item.productName || (bProduct ? bProduct.name : ''),
+              sku: item.sku || (bProduct ? bProduct.sku : ''),
+              productId: bProduct ? bProduct._id : null,
+              mfgDate: item.mfgDate || '',
+              expiryDate: item.expiryDate || '',
+              location: item.location || defaultShade || 'Shade 1',
+              shadeId: defaultShade ? defaultShade.split('-')[0].trim() : 'SH01',
+              unit: item.baseUnit || 'Kg',
+              status: 'Active',
+            },
+            $inc: { qty: qtyToAdd },
+          },
+          { upsert: true, new: true }
+        )
+      } catch (e) {
+        console.warn('Batch registration notice:', e.message)
+      }
     }
   }
 }
@@ -219,6 +248,14 @@ router.post('/allocate-item', async (req, res) => {
           },
         }
       ).catch(() => {})
+    }
+
+    // Sync location into Batch registry
+    if (batchNo) {
+      try {
+        const Batch = require('../models/Batch')
+        await Batch.updateOne({ batchNo }, { $set: { location: cellCode, shadeId: shade || cellCode.split('-')[0] || '' } })
+      } catch (e) {}
     }
 
     res.json({ message: `Item allocated to ${cellCode} successfully`, grn })

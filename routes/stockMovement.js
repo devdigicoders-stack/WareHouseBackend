@@ -134,7 +134,15 @@ router.post('/', async (req, res) => {
       console.warn('GRN sync note:', e)
     }
 
-    // 4. Create and save movement record in MongoDB
+    // 5. Sync Batch registry location
+    if (batchNo && toLocation) {
+      try {
+        const Batch = require('../models/Batch')
+        await Batch.updateMany({ batchNo }, { $set: { location: toLocation } })
+      } catch (e) {}
+    }
+
+    // 6. Create and save movement record in MongoDB
     const movement = new StockMovement({
       type,
       productId: productId || null,

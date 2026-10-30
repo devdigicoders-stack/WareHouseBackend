@@ -4,7 +4,7 @@ const stockAdjustmentSchema = new mongoose.Schema({
   adjNumber: { type: String, unique: true },
   type: {
     type: String,
-    enum: ['Cycle Count Adjustment', 'Damage / Rejection', 'Quality Hold', 'Hold Release', 'Internal Transfer'],
+    enum: ['Cycle Count Adjustment', 'Damage / Rejection', 'Quality Hold', 'Hold Release', 'Internal Transfer', 'Expiry Write-Off'],
     required: true
   },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', default: null },
@@ -25,7 +25,7 @@ const stockAdjustmentSchema = new mongoose.Schema({
   notes: { type: String, default: '' },
   status: {
     type: String,
-    enum: ['Pending Approval', 'Approved / Executed', 'Rejected'],
+    enum: ['Pending Approval', 'Approved / Executed', 'Rejected', 'On Hold', 'Quarantine', 'Released'],
     default: 'Approved / Executed'
   }
 }, { timestamps: true })

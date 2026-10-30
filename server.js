@@ -23,6 +23,8 @@ const analyticsRoutes = require('./routes/analytics')
 const gatePassRoutes = require('./routes/gatePass')
 const visitorRoutes = require('./routes/visitor')
 const stockMovementRoutes = require('./routes/stockMovement')
+const batchRoutes = require('./routes/batch')
+const settingsRoutes = require('./routes/settings')
 
 const app = express()
 
@@ -43,6 +45,8 @@ app.use('/api/stock-adjust', stockAdjustmentRoutes)
 app.use('/api/stock-movement', stockMovementRoutes)
 app.use('/api/partners', partnerRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/batch', batchRoutes)
+app.use('/api/settings', settingsRoutes)
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }))
 
